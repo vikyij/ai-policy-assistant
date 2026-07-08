@@ -1,0 +1,7 @@
+allowBuilds:
+  msw: true
+  sharp: true
+nodeLinker: hoisted
+overrides:
+  hono: 4.12.25
+verifyDepsBeforeRun: false
