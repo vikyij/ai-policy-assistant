@@ -54,7 +54,7 @@ export function Sidebar({
               <ShieldCheck className="size-5" />
             </div>
             <div className="leading-tight">
-              <p className="text-sm font-semibold text-sidebar-foreground">Aegis</p>
+              <p className="text-sm font-semibold text-sidebar-foreground">Policy Pilot</p>
               <p className="text-xs text-muted-foreground">Responsible AI</p>
             </div>
           </div>
@@ -102,8 +102,8 @@ export function Sidebar({
               MC
             </div>
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">Maya Chen</p>
-              <p className="truncate text-xs text-muted-foreground">Compliance Lead</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">Victoria Udechukwu</p>
+              <p className="truncate text-xs text-muted-foreground">Responsible AI Engineer</p>
             </div>
           </div>
         </div>
