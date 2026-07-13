@@ -1,34 +1,40 @@
 import { ShieldCheck, TriangleAlert, CircleDashed, FileText } from "lucide-react"
-import { checklistItems } from "@/lib/data"
+import type { AnswerResponse, UploadResponse } from "@/lib/api"
 import { Card } from "./ui"
 
-export function StatCards() {
-  const pass = checklistItems.filter((i) => i.status === "pass").length
-  const partial = checklistItems.filter((i) => i.status === "partial").length
-  const gap = checklistItems.filter((i) => i.status === "gap").length
-
+export function StatCards({
+  document,
+  checklist,
+  gapAnalysis,
+  chatCount,
+}: {
+  document: UploadResponse | null
+  checklist: AnswerResponse | null
+  gapAnalysis: AnswerResponse | null
+  chatCount: number
+}) {
   const stats = [
     {
-      label: "Compliant Controls",
-      value: pass,
+      label: "Document",
+      value: document ? 1 : 0,
       icon: ShieldCheck,
       className: "bg-success/10 text-success",
     },
     {
-      label: "Partial Controls",
-      value: partial,
+      label: "Checklist",
+      value: checklist ? "Ready" : "Pending",
       icon: CircleDashed,
       className: "bg-warning/15 text-warning-foreground",
     },
     {
-      label: "Open Gaps",
-      value: gap,
+      label: "Gap Analysis",
+      value: gapAnalysis ? "Ready" : "Pending",
       icon: TriangleAlert,
       className: "bg-destructive/10 text-destructive",
     },
     {
-      label: "Documents",
-      value: 1,
+      label: "Chat Questions",
+      value: chatCount,
       icon: FileText,
       className: "bg-accent text-accent-foreground",
     },
