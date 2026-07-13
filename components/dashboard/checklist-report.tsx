@@ -1,65 +1,39 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Download } from "lucide-react"
-import { checklistItems, type ChecklistStatus } from "@/lib/data"
+import { Download, ListChecks, Quote } from "lucide-react"
+import type { AnswerResponse } from "@/lib/api"
 import { Button } from "@/components/ui/button"
-import { Card, StatusBadge } from "./ui"
-import { cn } from "@/lib/utils"
+import { Card } from "./ui"
 
-const filters: { id: ChecklistStatus | "all"; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "pass", label: "Compliant" },
-  { id: "partial", label: "Partial" },
-  { id: "gap", label: "Gaps" },
-]
-
-export function ChecklistReport({ compact = false }: { compact?: boolean }) {
-  const [filter, setFilter] = useState<ChecklistStatus | "all">("all")
-
-  const items = useMemo(
-    () => (filter === "all" ? checklistItems : checklistItems.filter((i) => i.status === filter)),
-    [filter],
-  )
-
-  const grouped = useMemo(() => {
-    return items.reduce<Record<string, typeof items>>((acc, item) => {
-      acc[item.category] = acc[item.category] || []
-      acc[item.category].push(item)
-      return acc
-    }, {})
-  }, [items])
-
-  const passCount = checklistItems.filter((i) => i.status === "pass").length
-
+export function ChecklistReport({
+  compact = false,
+  result,
+  loading,
+  disabled,
+  onGenerate,
+}: {
+  compact?: boolean
+  result: AnswerResponse | null
+  loading: boolean
+  disabled: boolean
+  onGenerate: () => void
+}) {
   return (
     <Card className="flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Responsible AI Checklist</h2>
           <p className="text-xs text-muted-foreground">
-            {passCount} of {checklistItems.length} controls compliant
+            Generate controls from the indexed policy evidence
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-border bg-muted/40 p-0.5">
-            {filters.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setFilter(f.id)}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                  filter === f.id
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          <Button variant="outline" size="sm" onClick={onGenerate} disabled={disabled || loading}>
+            <ListChecks className="size-3.5" />
+            {loading ? "Generating..." : "Generate"}
+          </Button>
           {!compact && (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled={!result}>
               <Download className="size-3.5" />
               Export
             </Button>
@@ -67,35 +41,47 @@ export function ChecklistReport({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
 
-      <div className="divide-y divide-border">
-        {Object.entries(grouped).map(([category, catItems]) => (
-          <div key={category} className="p-5">
-            <p className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {category}
+      <div className="p-5">
+        {!result && (
+          <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
+            <p className="text-sm font-medium text-foreground">No checklist generated yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Upload a document, then generate a checklist grounded in retrieved source passages.
             </p>
-            <ul className="flex flex-col gap-2.5">
-              {catItems.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/30 p-3.5"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{item.title}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                      {item.description}
-                    </p>
-                    <p className="mt-1.5 text-xs font-medium text-primary">{item.reference}</p>
-                  </div>
-                  <StatusBadge status={item.status} />
-                </li>
-              ))}
-            </ul>
           </div>
-        ))}
-        {items.length === 0 && (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            No controls match this filter.
-          </p>
+        )}
+
+        {result && (
+          <div className="space-y-5">
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                {compact ? result.answer.slice(0, 900) : result.answer}
+                {compact && result.answer.length > 900 ? "..." : ""}
+              </p>
+            </div>
+
+            {!compact && result.sources.length > 0 && (
+              <div className="space-y-2">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Quote className="size-3.5" />
+                  Sources used
+                </p>
+                {result.sources.slice(0, 6).map((source, index) => (
+                  <div key={`${source.document}-${source.page}-${index}`} className="rounded-xl border border-border bg-card p-3">
+                    <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+                      <span className="truncate font-medium text-foreground">{source.document}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        Page {source.page} · score {source.score.toFixed(3)}
+                      </span>
+                    </div>
+                    <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                      {source.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </Card>
