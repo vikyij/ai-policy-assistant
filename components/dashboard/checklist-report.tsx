@@ -23,6 +23,8 @@ type ParsedChecklistItem = {
   recommendation: string
 }
 
+type ChecklistSource = AnswerResponse["sources"][number]
+
 const statusConfig = {
   pass: {
     label: "Covered",
@@ -72,14 +74,19 @@ function isChecklistCategory(title: string) {
 
 function parseChecklist(answer: string): ParsedChecklistItem[] {
   const normalized = answer.replace(/\r\n/g, "\n")
-  const headingPattern = /(?:^|\n)#{2,6}\s*(?:\d+\.?\s*)?(.+?)(?=\n)/g
-  const matches = Array.from(normalized.matchAll(headingPattern))
+  const markdownHeadingPattern = /(?:^|\n)\s*#{2,6}\s*(?:\d+\.?\s*)?(.+?)(?=\n)/g
+  const numberedHeadingPattern = /(?:^|\n)\s*(?:\d+[\.)]\s+)([^:\n]+?)(?=\n)/g
+  const matches = [
+    ...Array.from(normalized.matchAll(markdownHeadingPattern)),
+    ...Array.from(normalized.matchAll(numberedHeadingPattern)),
+  ]
     .map((match) => ({
       title: cleanMarkdown(match[1]),
       index: match.index ?? 0,
       fullHeading: match[0],
     }))
     .filter((match) => isChecklistCategory(match.title))
+    .sort((a, b) => a.index - b.index)
 
   if (matches.length === 0) {
     return []
@@ -116,6 +123,215 @@ function parseChecklist(answer: string): ParsedChecklistItem[] {
       recommendation: cleanMarkdown(recommendationMatch?.[1] ?? ""),
     }]
   })
+}
+
+function uniqueSources(sources: ChecklistSource[]) {
+  return sources.filter(
+    (source, index, allSources) =>
+      allSources.findIndex(
+        (item) =>
+          item.document === source.document &&
+          item.page === source.page &&
+          item.text.slice(0, 140) === source.text.slice(0, 140),
+      ) === index,
+  )
+}
+
+function exportChecklistPdf({
+  items,
+  result,
+  coveredCount,
+  partialCount,
+  missingCount,
+}: {
+  items: ParsedChecklistItem[]
+  result: AnswerResponse
+  coveredCount: number
+  partialCount: number
+  missingCount: number
+}) {
+  const pageWidth = 612
+  const pageHeight = 792
+  const margin = 54
+  const maxWidth = pageWidth - margin * 2
+  const lineHeight = 14
+  const generatedAt = new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date())
+  const sources = uniqueSources(result.sources)
+  const pages: string[][] = [[]]
+  let y = pageHeight - margin
+
+  function sanitizePdfText(value: string) {
+    return value
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/[–—]/g, "-")
+      .replace(/•/g, "-")
+      .replace(/\s+/g, " ")
+      .replace(/[^\x20-\x7E]/g, "")
+      .trim()
+  }
+
+  function escapePdfText(value: string) {
+    return sanitizePdfText(value)
+      .replace(/\\/g, "\\\\")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)")
+  }
+
+  function wrapText(text: string, fontSize: number) {
+    const maxChars = Math.max(24, Math.floor(maxWidth / (fontSize * 0.52)))
+    const words = sanitizePdfText(text).split(" ").filter(Boolean)
+    const lines: string[] = []
+    let line = ""
+
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word
+
+      if (next.length > maxChars && line) {
+        lines.push(line)
+        line = word
+      } else {
+        line = next
+      }
+    }
+
+    if (line) lines.push(line)
+    return lines
+  }
+
+  function currentPage() {
+    return pages[pages.length - 1]
+  }
+
+  function addPage() {
+    pages.push([])
+    y = pageHeight - margin
+  }
+
+  function ensureSpace(height: number) {
+    if (y - height < margin) {
+      addPage()
+    }
+  }
+
+  function addText(text: string, options: { fontSize?: number; bold?: boolean; indent?: number; gapAfter?: number } = {}) {
+    const fontSize = options.fontSize ?? 10
+    const indent = options.indent ?? 0
+    const lines = wrapText(text, fontSize)
+
+    for (const line of lines) {
+      ensureSpace(lineHeight)
+      currentPage().push(`BT /${options.bold ? "F2" : "F1"} ${fontSize} Tf ${margin + indent} ${y} Td (${escapePdfText(line)}) Tj ET`)
+      y -= lineHeight
+    }
+
+    y -= options.gapAfter ?? 2
+  }
+
+  function addDivider() {
+    ensureSpace(12)
+    currentPage().push(`${margin} ${y} m ${pageWidth - margin} ${y} l S`)
+    y -= 12
+  }
+
+  addText("POLICY PILOT", { fontSize: 9, bold: true })
+  addText("Responsible AI Checklist Report", { fontSize: 20, bold: true, gapAfter: 4 })
+  addText(`Generated ${generatedAt} from indexed policy evidence.`, { fontSize: 10, gapAfter: 8 })
+  addDivider()
+  addText(`Covered: ${coveredCount}    Partially covered: ${partialCount}    Missing: ${missingCount}`, {
+    fontSize: 12,
+    bold: true,
+    gapAfter: 12,
+  })
+
+  if (items.length > 0) {
+    items.forEach((item, index) => {
+      ensureSpace(82)
+      addText(`${index + 1}. ${item.title}`, { fontSize: 13, bold: true })
+      addText(`Status: ${item.statusLabel || statusConfig[item.status].label}`, { fontSize: 10, bold: true })
+      addText("Evidence", { fontSize: 10, bold: true })
+
+      if (item.evidence.length > 0) {
+        item.evidence.forEach((evidence) => addText(`- ${evidence}`, { indent: 12 }))
+      } else {
+        addText("No direct evidence returned.", { indent: 12 })
+      }
+
+      if (item.recommendation) {
+        addText("Recommendation", { fontSize: 10, bold: true })
+        addText(item.recommendation, { indent: 12 })
+      }
+
+      y -= 8
+    })
+  } else {
+    addText(result.answer)
+  }
+
+  if (sources.length > 0) {
+    addPage()
+    addText("Sources Used", { fontSize: 16, bold: true, gapAfter: 8 })
+
+    sources.forEach((source, index) => {
+      ensureSpace(64)
+      addText(`${index + 1}. ${source.document} - Page ${source.page} - score ${source.score.toFixed(3)}`, {
+        fontSize: 11,
+        bold: true,
+      })
+      addText(source.text, { indent: 12, gapAfter: 8 })
+    })
+  }
+
+  const objects: string[] = []
+  const pageObjects: number[] = []
+
+  objects.push("<< /Type /Catalog /Pages 2 0 R >>")
+  objects.push("PAGES_PLACEHOLDER")
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
+
+  pages.forEach((commands) => {
+    const content = `0.8 w\n${commands.join("\n")}`
+    const contentObjectNumber = objects.length + 1
+    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
+
+    const pageObjectNumber = objects.length + 1
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`,
+    )
+    pageObjects.push(pageObjectNumber)
+  })
+
+  objects[1] = `<< /Type /Pages /Kids [${pageObjects.map((objectNumber) => `${objectNumber} 0 R`).join(" ")}] /Count ${pageObjects.length} >>`
+
+  let pdf = "%PDF-1.4\n"
+  const offsets = [0]
+
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length)
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+  })
+
+  const xrefOffset = pdf.length
+  pdf += `xref\n0 ${objects.length + 1}\n`
+  pdf += "0000000000 65535 f \n"
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`
+  })
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+
+  const blob = new Blob([pdf], { type: "application/pdf" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = "responsible-ai-checklist.pdf"
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 function ChecklistStatusBadge({ status, label }: { status: ParsedChecklistItem["status"]; label: string }) {
@@ -190,19 +406,11 @@ function MarkdownFallback({ answer, compact }: { answer: string; compact: boolea
 }
 
 function SourceList({ result, compact }: { result: AnswerResponse; compact: boolean }) {
-  const uniqueSources = result.sources.filter(
-    (source, index, sources) =>
-      sources.findIndex(
-        (item) =>
-          item.document === source.document &&
-          item.page === source.page &&
-          item.text.slice(0, 140) === source.text.slice(0, 140),
-      ) === index,
-  )
-  const visibleSources = uniqueSources.slice(0, compact ? 3 : 4)
-  const hiddenSources = uniqueSources.slice(visibleSources.length)
+  const sources = uniqueSources(result.sources)
+  const visibleSources = sources.slice(0, compact ? 3 : 4)
+  const hiddenSources = sources.slice(visibleSources.length)
 
-  if (uniqueSources.length === 0) return null
+  if (sources.length === 0) return null
 
   return (
     <div className="space-y-3">
@@ -212,7 +420,7 @@ function SourceList({ result, compact }: { result: AnswerResponse; compact: bool
           Sources used
         </p>
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-          {uniqueSources.length} unique passages
+          {sources.length} unique passages
         </span>
       </div>
 
@@ -291,7 +499,21 @@ export function ChecklistReport({
             {loading ? "Generating..." : "Generate"}
           </Button>
           {!compact && (
-            <Button variant="outline" size="sm" disabled={!result}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!result}
+              onClick={() => {
+                if (!result) return
+                exportChecklistPdf({
+                  items: checklistItems,
+                  result,
+                  coveredCount,
+                  partialCount,
+                  missingCount,
+                })
+              }}
+            >
               <Download className="size-3.5" />
               Export
             </Button>
