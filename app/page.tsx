@@ -3,12 +3,12 @@
 import { useState } from "react"
 import { Sidebar, type ViewId } from "@/components/dashboard/sidebar"
 import { Topbar } from "@/components/dashboard/topbar"
-import { StatCards } from "@/components/dashboard/stat-cards"
 import { PdfUpload } from "@/components/dashboard/pdf-upload"
 import { DocumentStatusCard } from "@/components/dashboard/document-status-card"
 import { ChatInterface } from "@/components/dashboard/chat-interface"
 import { ChecklistReport } from "@/components/dashboard/checklist-report"
 import { GapAnalysis } from "@/components/dashboard/gap-analysis"
+import { OverviewDashboard } from "@/components/dashboard/overview-dashboard"
 import { Card } from "@/components/dashboard/ui"
 import {
   askQuestion,
@@ -189,41 +189,21 @@ export default function Page() {
           ) : (
             <div className="mx-auto max-w-6xl p-4 md:p-6">
               {view === "overview" && (
-                <div className="flex flex-col gap-5">
-                  <StatCards
-                    document={document}
-                    checklist={checklist}
-                    gapAnalysis={gapAnalysis}
-                    chatCount={messages.filter((message) => message.role === "user").length}
-                  />
-                  <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-                    <Card className="p-5">
-                      <p className="mb-3 text-sm font-semibold text-foreground">Upload Documents</p>
-                      <PdfUpload
-                        document={document}
-                        uploading={uploading}
-                        error={uploadError}
-                        onUpload={handleUpload}
-                        onClear={clearDocument}
-                      />
-                    </Card>
-                    <DocumentStatusCard document={document} />
-                  </div>
-                  <GapAnalysis
-                    compact
-                    result={gapAnalysis}
-                    loading={gapLoading}
-                    disabled={!document}
-                    onGenerate={handleGapAnalysis}
-                  />
-                  <ChecklistReport
-                    compact
-                    result={checklist}
-                    loading={checklistLoading}
-                    disabled={!document}
-                    onGenerate={handleChecklist}
-                  />
-                </div>
+                <OverviewDashboard
+                  document={document}
+                  uploading={uploading}
+                  uploadError={uploadError}
+                  checklist={checklist}
+                  checklistLoading={checklistLoading}
+                  gapAnalysis={gapAnalysis}
+                  gapLoading={gapLoading}
+                  chatCount={messages.filter((message) => message.role === "user").length}
+                  onUpload={handleUpload}
+                  onClear={clearDocument}
+                  onGenerateChecklist={handleChecklist}
+                  onGenerateGapAnalysis={handleGapAnalysis}
+                  onNavigate={setView}
+                />
               )}
 
               {view === "checklist" && (
