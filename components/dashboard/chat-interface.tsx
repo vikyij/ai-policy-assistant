@@ -41,31 +41,31 @@ export function ChatInterface({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2.5 border-b border-border px-5 py-3.5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Sparkles className="size-4" />
+      <div className="flex items-center gap-2.5 border-b border-border px-3 py-3 sm:px-5 sm:py-3.5">
+        <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground sm:size-8">
+          <Sparkles className="size-3.5 sm:size-4" />
         </div>
         <div className="leading-tight">
           <p className="text-sm font-semibold text-foreground">Policy Assistant</p>
-          <p className="text-xs text-muted-foreground">Grounded in your uploaded documents</p>
+          <p className="hidden text-xs text-muted-foreground sm:block">Grounded in your uploaded documents</p>
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:space-y-5 sm:px-5 sm:py-5">
         {messages.map((msg) =>
           msg.role === "user" ? (
             <div key={msg.id} className="flex justify-end">
-              <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+              <div className="max-w-[88%] rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm text-primary-foreground sm:max-w-[80%] sm:px-4">
                 {msg.content}
               </div>
             </div>
           ) : (
-            <div key={msg.id} className="flex gap-3">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                <ShieldCheck className="size-4" />
+            <div key={msg.id} className="flex gap-2.5 sm:gap-3">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground sm:size-8">
+                <ShieldCheck className="size-3.5 sm:size-4" />
               </div>
               <div className="min-w-0 flex-1 space-y-3">
-                <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
+                <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-3.5 py-2.5 text-sm leading-relaxed text-foreground sm:px-4 sm:py-3">
                   {msg.content}
                 </div>
                 {msg.citations && msg.citations.length > 0 && (
@@ -104,9 +104,9 @@ export function ChatInterface({
         )}
 
         {thinking && (
-          <div className="flex gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <ShieldCheck className="size-4" />
+          <div className="flex gap-2.5 sm:gap-3">
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground sm:size-8">
+              <ShieldCheck className="size-3.5 sm:size-4" />
             </div>
             <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3.5">
               {[0, 1, 2].map((i) => (
@@ -121,7 +121,7 @@ export function ChatInterface({
         )}
       </div>
 
-      <div className="border-t border-border px-5 py-4">
+      <div className="border-t border-border px-3 py-3 sm:px-5 sm:py-4">
         {disabled && (
           <p className="mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             Upload and index a PDF before asking questions.
@@ -131,13 +131,13 @@ export function ChatInterface({
         {messages.length <= 1 && (
           <div className="mb-3">
             <p className="mb-2 text-xs font-medium text-muted-foreground">Suggested questions</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
               {suggestedQuestions.map((q) => (
                 <button
                   key={q}
                   onClick={() => send(q)}
                   disabled={disabled || thinking}
-                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-accent"
+                  className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-accent"
                 >
                   {q}
                 </button>

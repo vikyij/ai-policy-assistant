@@ -162,8 +162,8 @@ export default function Page() {
 
         <main className="min-h-0 flex-1 overflow-y-auto">
           {view === "assistant" ? (
-            <div className="grid h-full min-h-0 gap-5 p-4 md:p-6 lg:grid-cols-[1fr_340px]">
-              <Card className="min-h-0 overflow-hidden lg:h-full">
+            <div className="grid min-h-full gap-4 p-3 md:gap-5 md:p-6 lg:h-full lg:min-h-0 lg:grid-cols-[1fr_340px]">
+              <Card className="h-[calc(100dvh-6.5rem)] min-h-[540px] overflow-hidden lg:h-full lg:min-h-0">
                 <ChatInterface
                   messages={messages}
                   suggestedQuestions={activeQuestions}
