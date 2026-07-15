@@ -72,6 +72,28 @@ function isChecklistCategory(title: string) {
   return !/(responsible ai checklist|summary|recommendations?|overall assessment|top\s*3)/i.test(title)
 }
 
+function extractField(block: string, labels: string[]) {
+  const allLabels = [
+    "Status",
+    "Evidence",
+    "Evidence from document",
+    "Evidence from the document",
+    "Document evidence",
+    "Recommendation",
+    "Recommendations",
+  ]
+  const labelPattern = labels.join("|")
+  const stopPattern = allLabels
+    .filter((label) => !labels.includes(label))
+    .join("|")
+  const regex = new RegExp(
+    `(?:^|\\n)\\s*(?:[-*]\\s*)?(?:\\*\\*)?(?:${labelPattern})(?:\\*\\*)?\\s*:\\s*([\\s\\S]*?)(?=\\n\\s*(?:[-*]\\s*)?(?:\\*\\*)?(?:${stopPattern})(?:\\*\\*)?\\s*:|\\n\\s*#{2,6}\\s|\\n\\s*\\d+[\\.)]\\s+[^:\\n]+(?=\\n)|$)`,
+    "i",
+  )
+
+  return cleanMarkdown(block.match(regex)?.[1] ?? "")
+}
+
 function parseChecklist(answer: string): ParsedChecklistItem[] {
   const normalized = answer.replace(/\r\n/g, "\n")
   const markdownHeadingPattern = /(?:^|\n)\s*#{2,6}\s*(?:\d+\.?\s*)?(.+?)(?=\n)/g
@@ -96,20 +118,20 @@ function parseChecklist(answer: string): ParsedChecklistItem[] {
     const start = match.index + match.fullHeading.length
     const end = matches[index + 1]?.index ?? normalized.length
     const block = normalized.slice(start, end)
-    const statusMatch = block.match(/\*\*Status:\*\*\s*([^\n]+)/i) ?? block.match(/Status:\s*([^\n]+)/i)
-    const recommendationMatch =
-      block.match(/\*\*Recommendation:\*\*\s*([\s\S]*?)(?=\n\s*-\s*\*\*[A-Z][^:]+:\*\*|\n\s*#{2,6}|$)/i) ??
-      block.match(/Recommendation:\s*([\s\S]*?)(?=\n\s*-\s*[A-Z][^:]+:|\n\s*#{2,6}|$)/i)
-    const evidenceMatch =
-      block.match(/\*\*Evidence:\*\*\s*([\s\S]*?)(?=\n\s*-\s*\*\*Recommendation:\*\*|\n\s*Recommendation:|\n\s*#{2,6}|$)/i) ??
-      block.match(/Evidence:\s*([\s\S]*?)(?=\n\s*-\s*Recommendation:|\n\s*#{2,6}|$)/i)
+    const statusLabel = extractField(block, ["Status"]) || "Covered"
+    const evidenceText = extractField(block, [
+      "Evidence",
+      "Evidence from document",
+      "Evidence from the document",
+      "Document evidence",
+    ])
+    const recommendation = extractField(block, ["Recommendation", "Recommendations"])
 
-    if (!statusMatch && !evidenceMatch && !recommendationMatch) {
+    if (!statusLabel && !evidenceText && !recommendation) {
       return []
     }
 
-    const statusLabel = cleanMarkdown(statusMatch?.[1] ?? "Covered")
-    const evidence = (evidenceMatch?.[1] ?? "")
+    const evidence = evidenceText
       .split("\n")
       .map(cleanMarkdown)
       .filter(Boolean)
@@ -120,7 +142,7 @@ function parseChecklist(answer: string): ParsedChecklistItem[] {
       status: normalizeStatus(statusLabel),
       statusLabel,
       evidence,
-      recommendation: cleanMarkdown(recommendationMatch?.[1] ?? ""),
+      recommendation,
     }]
   })
 }

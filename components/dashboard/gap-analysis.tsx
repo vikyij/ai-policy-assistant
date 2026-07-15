@@ -94,11 +94,44 @@ const weakCoveragePatterns = [
   /\bincomplete\b/i,
 ]
 
+const partialButIncompletePatterns = [
+  /\bbut does not\b/i,
+  /\bbut lacks?\b/i,
+  /\bdoes not detail\b/i,
+  /\bdoes not provide detailed\b/i,
+  /\black(?:s|ing)? (?:specific|detailed|clear|formal|proactive)\b/i,
+  /\bneed(?:s)? (?:more|specific|detailed|clear|formal)\b/i,
+]
+
 const partialCoveragePatterns = [
   /\bpartial(?:ly)?\b/i,
   /\bsome\b/i,
   /\bmoderate\b/i,
   /\bpartly\b/i,
+]
+
+const relevantEvidencePatterns = [
+  /\bmentions?\b/i,
+  /\bdiscuss(?:es|ed)?\b/i,
+  /\bemphasiz(?:es|ed)?\b/i,
+  /\badvis(?:es|ed)?\b/i,
+  /\breferences?\b/i,
+  /\bincludes?\b/i,
+  /\baddresses?\b/i,
+  /\bconsiders?\b/i,
+  /\bensure\b/i,
+  /\bassess\b/i,
+  /\bverify\b/i,
+  /\bbias\b/i,
+  /\bfairness\b/i,
+  /\bexplainab(?:le|ility)\b/i,
+  /\btransparent|transparency\b/i,
+  /\bprivacy\b/i,
+  /\bsecurity\b/i,
+  /\baccountab(?:le|ility)\b/i,
+  /\boversight\b/i,
+  /\bincident\b/i,
+  /\baudit(?:able|ability)?\b/i,
 ]
 
 const strongCoveragePatterns = [
@@ -123,10 +156,16 @@ function classifyGapStatus({
 }): GapStatus {
   const coverageText = coverage.trim()
   const evidenceText = evidence.join(" ")
+  const coverageAndEvidenceText = [coverage, evidenceText].join(" ")
   const allText = [coverage, evidenceText, gap, recommendation].join(" ")
+  const hasRelevantCoverageOrEvidence = hasAnyPattern(coverageAndEvidenceText, relevantEvidencePatterns)
 
   if (hasAnyPattern(coverageText, missingCoveragePatterns)) {
     return "missing"
+  }
+
+  if (hasRelevantCoverageOrEvidence && hasAnyPattern(allText, partialButIncompletePatterns)) {
+    return "partial"
   }
 
   if (hasAnyPattern(coverageText, weakCoveragePatterns)) {
@@ -141,7 +180,7 @@ function classifyGapStatus({
     return "strong"
   }
 
-  if (hasAnyPattern(allText, missingCoveragePatterns)) {
+  if (!hasRelevantCoverageOrEvidence && hasAnyPattern(allText, missingCoveragePatterns)) {
     return "missing"
   }
 
@@ -190,6 +229,46 @@ function splitEvidence(value: string) {
     .split("\n")
     .map(cleanMarkdown)
     .filter(Boolean)
+}
+
+function cleanEvidenceSnippet(value: string) {
+  return cleanMarkdown(value)
+    .replace(/^["“”]+/, "")
+    .replace(/["“”]+$/, "")
+    .replace(/\s+•\s+/g, " ")
+    .trim()
+}
+
+function EvidenceList({
+  evidence,
+  compact,
+  itemId,
+}: {
+  evidence: string[]
+  compact: boolean
+  itemId: string
+}) {
+  const visibleEvidence = evidence.slice(0, compact ? 1 : 3).map(cleanEvidenceSnippet)
+
+  if (visibleEvidence.length === 0) {
+    return <p className="text-sm text-muted-foreground">No direct evidence returned.</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      {visibleEvidence.map((snippet, index) => (
+        <blockquote
+          key={`${itemId}-evidence-${index}`}
+          className="rounded-lg border border-border bg-card px-3.5 py-3 shadow-sm shadow-foreground/[0.02]"
+        >
+          <div className="flex gap-2.5">
+            <Quote className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+            <p className="text-sm leading-relaxed text-foreground">{snippet}</p>
+          </div>
+        </blockquote>
+      ))}
+    </div>
+  )
 }
 
 function parseGapAnalysis(answer: string): ParsedGapItem[] {
@@ -546,15 +625,7 @@ export function GapAnalysis({
                               <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                                 Evidence
                               </p>
-                              {item.evidence.length > 0 ? (
-                                <ul className="space-y-1.5 text-sm leading-relaxed text-foreground">
-                                  {item.evidence.slice(0, compact ? 1 : 3).map((evidence, index) => (
-                                    <li key={`${item.id}-evidence-${index}`}>{evidence}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">No direct evidence returned.</p>
-                              )}
+                              <EvidenceList evidence={item.evidence} compact={compact} itemId={item.id} />
                             </div>
 
                             {item.gap && (
