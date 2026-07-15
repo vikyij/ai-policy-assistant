@@ -355,12 +355,12 @@ function SummaryCard({
   const Icon = config.icon
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 p-4">
-      <div className={cn("mb-3 flex size-9 items-center justify-center rounded-lg", config.className)}>
-        <Icon className="size-4" />
+    <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-4">
+      <div className={cn("mb-2 flex size-8 items-center justify-center rounded-lg sm:mb-3 sm:size-9", config.className)}>
+        <Icon className="size-3.5 sm:size-4" />
       </div>
-      <p className="text-2xl font-semibold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl font-semibold text-foreground sm:text-2xl">{value}</p>
+      <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">{label}</p>
     </div>
   )
 }
@@ -498,19 +498,21 @@ function RiskPanel({
           : "bg-muted text-muted-foreground"
 
   return (
-    <Card className="flex flex-col gap-5 p-6 lg:sticky lg:top-20 lg:col-span-1 lg:self-start">
-      <div>
-        <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-          <TriangleAlert className="size-5" />
+    <Card className="flex flex-col gap-4 p-4 sm:gap-5 sm:p-6 lg:sticky lg:top-20 lg:col-span-1 lg:self-start">
+      <div className="flex items-start gap-3 sm:block">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive sm:mb-4 sm:size-10">
+          <TriangleAlert className="size-4.5 sm:size-5" />
         </div>
-        <p className="text-sm font-semibold text-foreground">Gap Analysis</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Identify missing or weak Responsible AI controls from the indexed document.
-        </p>
+        <div>
+          <p className="text-sm font-semibold text-foreground">Gap Analysis</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Identify missing or weak Responsible AI controls from the indexed document.
+          </p>
+        </div>
       </div>
 
       {items.length > 0 && (
-        <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3 sm:p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-medium text-muted-foreground">Overall risk</span>
             <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", riskClassName)}>
@@ -519,11 +521,11 @@ function RiskPanel({
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xl font-semibold text-foreground">{missingCount + weakCount}</p>
+              <p className="text-lg font-semibold text-foreground sm:text-xl">{missingCount + weakCount}</p>
               <p className="text-xs text-muted-foreground">Missing or weak</p>
             </div>
             <div>
-              <p className="text-xl font-semibold text-foreground">{items.length}</p>
+              <p className="text-lg font-semibold text-foreground sm:text-xl">{items.length}</p>
               <p className="text-xs text-muted-foreground">Areas assessed</p>
             </div>
           </div>
@@ -583,7 +585,7 @@ export function GapAnalysis({
           <div className="space-y-5">
             {gapItems.length > 0 && (
               <>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
                   <SummaryCard label="Strong" value={strongCount} status="strong" />
                   <SummaryCard label="Partial" value={partialCount} status="partial" />
                   <SummaryCard label="Weak" value={weakCount} status="weak" />
