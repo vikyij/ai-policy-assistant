@@ -223,7 +223,7 @@ function classifyGapStatus({
 
 function getChecklistSummary(checklist: AnswerResponse | null) {
   const items = checklist
-    ? getSectionMatches(checklist.answer, /responsible ai checklist|summary|recommendations?|overall assessment|top\s*3/i)
+    ? getSectionMatches(checklist.answer, /checklist|summary|recommendations?|overall assessment|top\s*3|introduction|conclusion/i)
         .map(({ title, block }) => {
           const status = extractField(block, ["Status"]) || block
           const recommendation = extractField(block, ["Recommendation", "Recommendations"])

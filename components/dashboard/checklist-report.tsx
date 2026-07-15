@@ -69,7 +69,7 @@ function normalizeStatus(value: string): ParsedChecklistItem["status"] {
 }
 
 function isChecklistCategory(title: string) {
-  return !/(responsible ai checklist|summary|recommendations?|overall assessment|top\s*3)/i.test(title)
+  return !/(checklist|summary|recommendations?|overall assessment|top\s*3|introduction|conclusion)/i.test(title)
 }
 
 function extractField(block: string, labels: string[]) {
@@ -118,7 +118,7 @@ function parseChecklist(answer: string): ParsedChecklistItem[] {
     const start = match.index + match.fullHeading.length
     const end = matches[index + 1]?.index ?? normalized.length
     const block = normalized.slice(start, end)
-    const statusLabel = extractField(block, ["Status"]) || "Covered"
+    const statusText = extractField(block, ["Status"])
     const evidenceText = extractField(block, [
       "Evidence",
       "Evidence from document",
@@ -127,10 +127,11 @@ function parseChecklist(answer: string): ParsedChecklistItem[] {
     ])
     const recommendation = extractField(block, ["Recommendation", "Recommendations"])
 
-    if (!statusLabel && !evidenceText && !recommendation) {
+    if (!statusText && !evidenceText && !recommendation) {
       return []
     }
 
+    const statusLabel = statusText || "Covered"
     const evidence = evidenceText
       .split("\n")
       .map(cleanMarkdown)
@@ -157,6 +158,36 @@ function uniqueSources(sources: ChecklistSource[]) {
           item.text.slice(0, 140) === source.text.slice(0, 140),
       ) === index,
   )
+}
+
+function cleanChecklistNote(value: string) {
+  return cleanMarkdown(value)
+    .replace(/^["“”]+/, "")
+    .replace(/["“”]+$/, "")
+    .replace(/\s+•\s+/g, " ")
+    .trim()
+}
+
+function truncateText(value: string, maxLength = 220) {
+  if (value.length <= maxLength) {
+    return value
+  }
+
+  return `${value.slice(0, maxLength).trim()}...`
+}
+
+function getChecklistNote(item: ParsedChecklistItem) {
+  const note = item.evidence.map(cleanChecklistNote).filter(Boolean)[0]
+
+  if (note) {
+    return truncateText(note)
+  }
+
+  if (item.status === "gap") {
+    return "No direct evidence found in the retrieved policy passages."
+  }
+
+  return item.statusLabel || statusConfig[item.status].label
 }
 
 function exportChecklistPdf({
@@ -274,18 +305,7 @@ function exportChecklistPdf({
       ensureSpace(82)
       addText(`${index + 1}. ${item.title}`, { fontSize: 13, bold: true })
       addText(`Status: ${item.statusLabel || statusConfig[item.status].label}`, { fontSize: 10, bold: true })
-      addText("Evidence", { fontSize: 10, bold: true })
-
-      if (item.evidence.length > 0) {
-        item.evidence.forEach((evidence) => addText(`- ${evidence}`, { indent: 12 }))
-      } else {
-        addText("No direct evidence returned.", { indent: 12 })
-      }
-
-      if (item.recommendation) {
-        addText("Recommendation", { fontSize: 10, bold: true })
-        addText(item.recommendation, { indent: 12 })
-      }
+      addText(`Evidence: ${getChecklistNote(item)}`, { indent: 12 })
 
       y -= 8
     })
@@ -381,12 +401,12 @@ function SummaryCard({
   const Icon = config.icon
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 p-4">
-      <div className={cn("mb-3 flex size-9 items-center justify-center rounded-lg", config.className)}>
-        <Icon className="size-4" />
+    <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-4">
+      <div className={cn("mb-2 flex size-8 items-center justify-center rounded-lg sm:mb-3 sm:size-9", config.className)}>
+        <Icon className="size-3.5 sm:size-4" />
       </div>
-      <p className="text-2xl font-semibold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl font-semibold text-foreground sm:text-2xl">{value}</p>
+      <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">{label}</p>
     </div>
   )
 }
@@ -555,58 +575,36 @@ export function ChecklistReport({
 
         {result && checklistItems.length > 0 && (
           <>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <SummaryCard label="Covered" value={coveredCount} status="pass" />
               <SummaryCard label="Partially covered" value={partialCount} status="partial" />
               <SummaryCard label="Missing" value={missingCount} status="gap" />
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-3 xl:grid-cols-2">
               {visibleItems.map((item) => {
                 const config = statusConfig[item.status]
+                const Icon = config.icon
 
                 return (
                   <section
                     key={item.id}
-                    className={cn(
-                      "rounded-xl border border-border border-l-4 bg-card p-4 shadow-sm shadow-foreground/[0.02]",
-                      config.borderClassName,
-                    )}
+                    className="rounded-xl border border-border bg-card p-4 shadow-sm shadow-foreground/[0.02]"
                   >
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Checklist category</p>
+                    <div className="flex h-full items-start gap-3">
+                      <div className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg", config.className)}>
+                        <Icon className="size-4" />
                       </div>
-                      <ChecklistStatusBadge status={item.status} label={item.statusLabel} />
-                    </div>
-
-                    <div className={cn("grid gap-3", item.recommendation && "md:grid-cols-2")}>
-                      <div className="rounded-lg bg-muted/30 p-3">
-                        <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                          Evidence
-                        </p>
-                        {item.evidence.length > 0 ? (
-                          <ul className="space-y-1.5 text-sm leading-relaxed text-foreground">
-                            {item.evidence.slice(0, compact ? 1 : 3).map((evidence, index) => (
-                              <li key={`${item.id}-evidence-${index}`}>{evidence}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">No direct evidence returned.</p>
-                        )}
-                      </div>
-
-                      {item.recommendation && (
-                        <div className="rounded-lg bg-muted/30 p-3">
-                          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                            Recommendation
-                          </p>
-                          <p className="text-sm leading-relaxed text-foreground">
-                            {item.recommendation}
-                          </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1.5 flex flex-wrap items-start justify-between gap-2">
+                          <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                          <ChecklistStatusBadge status={item.status} label={item.statusLabel} />
                         </div>
-                      )}
+                        <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                          <span className="font-medium text-foreground">Evidence:</span>{" "}
+                          {getChecklistNote(item)}
+                        </p>
+                      </div>
                     </div>
                   </section>
                 )
