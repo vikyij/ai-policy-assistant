@@ -10,16 +10,18 @@ type PdfUploadProps = {
   document: UploadResponse | null
   uploading: boolean
   error: string | null
+  locked?: boolean
   onUpload: (file: File) => void
   onClear: () => void
 }
 
-export function PdfUpload({ document, uploading, error, onUpload, onClear }: PdfUploadProps) {
+export function PdfUpload({ document, uploading, error, locked = false, onUpload, onClear }: PdfUploadProps) {
   const [dragging, setDragging] = useState(false)
   const [pendingFile, setPendingFile] = useState<{ name: string; size: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function addFiles(list: FileList | null) {
+    if (locked) return
     if (!list) return
     const file = Array.from(list).find((item) => item.type === "application/pdf" || item.name.endsWith(".pdf"))
     if (!file) return
@@ -50,21 +52,25 @@ export function PdfUpload({ document, uploading, error, onUpload, onClear }: Pdf
       <div
         role="button"
         tabIndex={0}
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && inputRef.current?.click()}
+        aria-disabled={uploading || locked}
+        onClick={() => !locked && inputRef.current?.click()}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && !locked && inputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault()
+          if (locked) return
           setDragging(true)
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
           e.preventDefault()
           setDragging(false)
+          if (locked) return
           addFiles(e.dataTransfer.files)
         }}
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors",
           uploading && "pointer-events-none opacity-70",
+          locked && "cursor-not-allowed opacity-70",
           dragging
             ? "border-primary bg-accent"
             : "border-border bg-muted/40 hover:border-primary/50 hover:bg-accent/50",
@@ -84,9 +90,16 @@ export function PdfUpload({ document, uploading, error, onUpload, onClear }: Pdf
           type="file"
           accept=".pdf"
           className="hidden"
+          disabled={locked}
           onChange={(e) => addFiles(e.target.files)}
         />
       </div>
+
+      {locked && visibleFile && (
+        <p className="rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          This document is locked while processing is in progress.
+        </p>
+      )}
 
       {error && (
         <p className="rounded-lg border border-destructive/20 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
@@ -110,7 +123,10 @@ export function PdfUpload({ document, uploading, error, onUpload, onClear }: Pdf
               variant="ghost"
               size="icon-sm"
               aria-label={`Remove ${visibleFile.name}`}
+              disabled={locked}
+              title={locked ? "Wait for processing to finish before removing this document." : undefined}
               onClick={() => {
+                if (locked) return
                 setPendingFile(null)
                 onClear()
               }}
