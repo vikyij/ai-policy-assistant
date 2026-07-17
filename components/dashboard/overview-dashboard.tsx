@@ -193,6 +193,35 @@ function classifyStatus(value: string): Exclude<OverviewStatus, "pending"> {
   return "strong"
 }
 
+function parseInlineChecklistSummary(answer: string) {
+  return answer
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => cleanMarkdown(line))
+    .filter(Boolean)
+    .flatMap((line) => {
+      const match = line.match(
+        /^(\d+)[\.)]\s*([^:]+):\s*(covered|partially covered|partial|missing|not covered)\s*(?:[-–—]\s*)?(.+)?$/i,
+      )
+
+      if (!match) return []
+
+      const title = cleanMarkdown(match[2])
+      const status = cleanMarkdown(match[3])
+      const evidence = cleanMarkdown(match[4] ?? "")
+
+      if (!title || /checklist|summary|recommendations?|overall assessment|top\s*3|introduction|conclusion/i.test(title)) {
+        return []
+      }
+
+      return [{
+        title,
+        status: classifyStatus(status),
+        recommendation: evidence,
+      }]
+    })
+}
+
 function classifyGapStatus({
   coverage,
   evidence,
@@ -223,7 +252,9 @@ function classifyGapStatus({
 
 function getChecklistSummary(checklist: AnswerResponse | null) {
   const items = checklist
-    ? getSectionMatches(checklist.answer, /checklist|summary|recommendations?|overall assessment|top\s*3|introduction|conclusion/i)
+    ? (parseInlineChecklistSummary(checklist.answer).length > 0
+        ? parseInlineChecklistSummary(checklist.answer)
+        : getSectionMatches(checklist.answer, /checklist|summary|recommendations?|overall assessment|top\s*3|introduction|conclusion/i)
         .map(({ title, block }) => {
           const status = extractField(block, ["Status"]) || block
           const recommendation = extractField(block, ["Recommendation", "Recommendations"])
@@ -234,7 +265,7 @@ function getChecklistSummary(checklist: AnswerResponse | null) {
             recommendation,
           }
         })
-        .filter((item) => item.title)
+        .filter((item) => item.title))
     : []
 
   return {

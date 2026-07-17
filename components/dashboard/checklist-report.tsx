@@ -72,6 +72,10 @@ function isChecklistCategory(title: string) {
   return !/(checklist|summary|recommendations?|overall assessment|top\s*3|introduction|conclusion)/i.test(title)
 }
 
+function isKnownStatus(value: string) {
+  return /^(covered|partially covered|partial|missing|not covered)$/i.test(value.trim())
+}
+
 function extractField(block: string, labels: string[]) {
   const allLabels = [
     "Status",
@@ -94,8 +98,44 @@ function extractField(block: string, labels: string[]) {
   return cleanMarkdown(block.match(regex)?.[1] ?? "")
 }
 
+function parseInlineChecklist(answer: string): ParsedChecklistItem[] {
+  return answer
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => cleanMarkdown(line))
+    .filter(Boolean)
+    .flatMap((line, index) => {
+      const match = line.match(
+        /^(\d+)[\.)]\s*([^:]+):\s*(covered|partially covered|partial|missing|not covered)\s*(?:[-–—]\s*)?(.+)?$/i,
+      )
+
+      if (!match) return []
+
+      const title = cleanMarkdown(match[2])
+      const statusLabel = cleanMarkdown(match[3])
+      const evidenceText = cleanMarkdown(match[4] ?? "")
+
+      if (!title || !isChecklistCategory(title)) return []
+
+      return [{
+        id: `inline-${index}-${title}`,
+        title,
+        status: normalizeStatus(statusLabel),
+        statusLabel,
+        evidence: evidenceText ? [evidenceText] : [],
+        recommendation: "",
+      }]
+    })
+}
+
 function parseChecklist(answer: string): ParsedChecklistItem[] {
   const normalized = answer.replace(/\r\n/g, "\n")
+  const inlineItems = parseInlineChecklist(normalized)
+
+  if (inlineItems.length > 0) {
+    return inlineItems
+  }
+
   const markdownHeadingPattern = /(?:^|\n)\s*#{2,6}\s*(?:\d+\.?\s*)?(.+?)(?=\n)/g
   const numberedHeadingPattern = /(?:^|\n)\s*(?:\d+[\.)]\s+)([^:\n]+?)(?=\n)/g
   const matches = [
@@ -131,7 +171,7 @@ function parseChecklist(answer: string): ParsedChecklistItem[] {
       return []
     }
 
-    const statusLabel = statusText || "Covered"
+    const statusLabel = isKnownStatus(statusText) ? statusText : "Covered"
     const evidence = evidenceText
       .split("\n")
       .map(cleanMarkdown)
