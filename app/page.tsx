@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { Sidebar, type ViewId } from "@/components/dashboard/sidebar"
-import { Topbar } from "@/components/dashboard/topbar"
+import { Topbar, type NotificationItem } from "@/components/dashboard/topbar"
 import { PdfUpload } from "@/components/dashboard/pdf-upload"
 import { DocumentStatusCard } from "@/components/dashboard/document-status-card"
 import { ChatInterface } from "@/components/dashboard/chat-interface"
@@ -41,6 +41,7 @@ export default function Page() {
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [gapAnalysis, setGapAnalysis] = useState<AnswerResponse | null>(null)
   const [gapLoading, setGapLoading] = useState(false)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const documentVersionRef = useRef(0)
   const documentLocked = uploading || checklistLoading || gapLoading
 
@@ -56,6 +57,33 @@ export default function Page() {
       page: source.page,
       quote: source.text.slice(0, 500),
     }))
+  }
+
+  function addNotification(
+    notification: Pick<NotificationItem, "title" | "description" | "type">,
+  ) {
+    setNotifications((current) => [
+      {
+        ...notification,
+        id: `notification-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        createdAt: Date.now(),
+        read: false,
+      },
+      ...current,
+    ].slice(0, 20))
+  }
+
+  function markNotificationsRead() {
+    setNotifications((current) =>
+      current.map((notification) => ({
+        ...notification,
+        read: true,
+      })),
+    )
+  }
+
+  function clearNotifications() {
+    setNotifications([])
   }
 
   async function handleUpload(file: File) {
@@ -75,10 +103,21 @@ export default function Page() {
       const result = await uploadDocument(file)
       if (documentVersionRef.current === requestVersion) {
         setDocument(result)
+        addNotification({
+          title: "Document indexed",
+          description: `${result.document} is ready for questions, checklist generation, and gap analysis.`,
+          type: "success",
+        })
       }
     } catch (error) {
       if (documentVersionRef.current === requestVersion) {
-        setUploadError(error instanceof Error ? error.message : "Upload failed.")
+        const message = error instanceof Error ? error.message : "Upload failed."
+        setUploadError(message)
+        addNotification({
+          title: "Upload failed",
+          description: message,
+          type: "error",
+        })
       }
     } finally {
       if (documentVersionRef.current === requestVersion) {
@@ -90,12 +129,22 @@ export default function Page() {
   function clearDocument() {
     if (documentLocked) return
 
+    const removedDocument = document?.document
+
     documentVersionRef.current += 1
     setDocument(null)
     setUploadError(null)
     setChecklist(null)
     setGapAnalysis(null)
     setMessages(initialMessages)
+
+    if (removedDocument) {
+      addNotification({
+        title: "Document removed",
+        description: `${removedDocument} was cleared from the current workspace.`,
+        type: "neutral",
+      })
+    }
   }
 
   async function handleSend(question: string) {
@@ -118,12 +167,18 @@ export default function Page() {
       }
       setMessages((current) => [...current, assistantMessage])
     } catch (error) {
+      const message = error instanceof Error ? error.message : "I could not generate an answer."
       const assistantMessage: ChatMessage = {
         id: `a-${Date.now()}`,
         role: "assistant",
-        content: error instanceof Error ? error.message : "I could not generate an answer.",
+        content: message,
       }
       setMessages((current) => [...current, assistantMessage])
+      addNotification({
+        title: "Question failed",
+        description: message,
+        type: "error",
+      })
     } finally {
       setThinking(false)
     }
@@ -139,12 +194,23 @@ export default function Page() {
       const result = await generateChecklist()
       if (documentVersionRef.current === requestVersion) {
         setChecklist(result)
+        addNotification({
+          title: "Checklist generated",
+          description: `${document.document} was assessed against the Responsible AI checklist.`,
+          type: "success",
+        })
       }
     } catch (error) {
       if (documentVersionRef.current === requestVersion) {
+        const message = error instanceof Error ? error.message : "Checklist generation failed."
         setChecklist({
-          answer: error instanceof Error ? error.message : "Checklist generation failed.",
+          answer: message,
           sources: [],
+        })
+        addNotification({
+          title: "Checklist failed",
+          description: message,
+          type: "error",
         })
       }
     } finally {
@@ -162,12 +228,23 @@ export default function Page() {
       const result = await generateGapAnalysis()
       if (documentVersionRef.current === requestVersion) {
         setGapAnalysis(result)
+        addNotification({
+          title: "Gap analysis completed",
+          description: `${document.document} was reviewed for weak or missing Responsible AI controls.`,
+          type: "warning",
+        })
       }
     } catch (error) {
       if (documentVersionRef.current === requestVersion) {
+        const message = error instanceof Error ? error.message : "Gap analysis generation failed."
         setGapAnalysis({
-          answer: error instanceof Error ? error.message : "Gap analysis generation failed.",
+          answer: message,
           sources: [],
+        })
+        addNotification({
+          title: "Gap analysis failed",
+          description: message,
+          type: "error",
         })
       }
     } finally {
@@ -188,7 +265,14 @@ export default function Page() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar title={meta[view].title} subtitle={meta[view].subtitle} onMenu={() => setNavOpen(true)} />
+        <Topbar
+          title={meta[view].title}
+          subtitle={meta[view].subtitle}
+          notifications={notifications}
+          onMenu={() => setNavOpen(true)}
+          onMarkNotificationsRead={markNotificationsRead}
+          onClearNotifications={clearNotifications}
+        />
 
         <main className="min-h-0 flex-1 overflow-y-auto">
           {view === "assistant" ? (
