@@ -6,7 +6,6 @@ import {
   ListChecks,
   ChartColumnIncreasing,
   FileText,
-  Settings,
   ShieldCheck,
   X,
 } from "lucide-react"
@@ -108,11 +107,7 @@ export function Sidebar({
         </nav>
 
         <div className="border-t border-border p-3">
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground">
-            <Settings className="size-4.5" />
-            Settings
-          </button>
-          <div className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5">
+          <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
             <div className="flex size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
               {getInitials(userName)}
             </div>
