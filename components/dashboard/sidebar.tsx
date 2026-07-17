@@ -22,6 +22,21 @@ const navItems: { id: ViewId; label: string; icon: typeof LayoutDashboard }[] = 
   { id: "documents", label: "Documents", icon: FileText },
 ]
 
+const userName = "Victoria Udechukwu"
+const userRole = "Responsible AI Engineer"
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+
+  if (parts.length === 0) return "U"
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+}
+
 export function Sidebar({
   active,
   onNavigate,
@@ -99,11 +114,11 @@ export function Sidebar({
           </button>
           <div className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5">
             <div className="flex size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
-              MC
+              {getInitials(userName)}
             </div>
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">Victoria Udechukwu</p>
-              <p className="truncate text-xs text-muted-foreground">Responsible AI Engineer</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{userName}</p>
+              <p className="truncate text-xs text-muted-foreground">{userRole}</p>
             </div>
           </div>
         </div>
