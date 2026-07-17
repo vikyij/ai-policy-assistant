@@ -1,6 +1,6 @@
 "use client"
 
-import { Menu, Search, Bell } from "lucide-react"
+import { Menu, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function Topbar({
@@ -25,14 +25,6 @@ export function Topbar({
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-base font-semibold text-foreground">{title}</h1>
         <p className="hidden truncate text-xs text-muted-foreground sm:block">{subtitle}</p>
-      </div>
-
-      <div className="hidden items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground lg:flex">
-        <Search className="size-4" />
-        <input
-          placeholder="Search policies…"
-          className="w-40 bg-transparent outline-none placeholder:text-muted-foreground"
-        />
       </div>
 
       <Button variant="outline" size="icon" aria-label="Notifications" className="relative">
