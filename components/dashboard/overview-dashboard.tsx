@@ -438,6 +438,7 @@ export function OverviewDashboard({
   chatCount,
   onUpload,
   onClear,
+  documentLocked,
   onGenerateChecklist,
   onGenerateGapAnalysis,
   onNavigate,
@@ -452,6 +453,7 @@ export function OverviewDashboard({
   chatCount: number
   onUpload: (file: File) => void
   onClear: () => void
+  documentLocked: boolean
   onGenerateChecklist: () => void
   onGenerateGapAnalysis: () => void
   onNavigate: (view: ViewId) => void
@@ -579,6 +581,7 @@ export function OverviewDashboard({
               document={document}
               uploading={uploading}
               error={uploadError}
+              locked={documentLocked}
               onUpload={onUpload}
               onClear={onClear}
             />

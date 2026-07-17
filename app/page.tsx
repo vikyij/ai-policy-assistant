@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Sidebar, type ViewId } from "@/components/dashboard/sidebar"
 import { Topbar } from "@/components/dashboard/topbar"
 import { PdfUpload } from "@/components/dashboard/pdf-upload"
@@ -41,6 +41,8 @@ export default function Page() {
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [gapAnalysis, setGapAnalysis] = useState<AnswerResponse | null>(null)
   const [gapLoading, setGapLoading] = useState(false)
+  const documentVersionRef = useRef(0)
+  const documentLocked = uploading || checklistLoading || gapLoading
 
   const activeQuestions = document?.suggested_questions.length
     ? document.suggested_questions
@@ -57,6 +59,11 @@ export default function Page() {
   }
 
   async function handleUpload(file: File) {
+    if (documentLocked) return
+
+    documentVersionRef.current += 1
+    const requestVersion = documentVersionRef.current
+
     setUploading(true)
     setUploadError(null)
     setDocument(null)
@@ -66,15 +73,24 @@ export default function Page() {
 
     try {
       const result = await uploadDocument(file)
-      setDocument(result)
+      if (documentVersionRef.current === requestVersion) {
+        setDocument(result)
+      }
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Upload failed.")
+      if (documentVersionRef.current === requestVersion) {
+        setUploadError(error instanceof Error ? error.message : "Upload failed.")
+      }
     } finally {
-      setUploading(false)
+      if (documentVersionRef.current === requestVersion) {
+        setUploading(false)
+      }
     }
   }
 
   function clearDocument() {
+    if (documentLocked) return
+
+    documentVersionRef.current += 1
     setDocument(null)
     setUploadError(null)
     setChecklist(null)
@@ -114,32 +130,46 @@ export default function Page() {
   }
 
   async function handleChecklist() {
+    if (!document) return
+
+    const requestVersion = documentVersionRef.current
     setChecklistLoading(true)
 
     try {
       const result = await generateChecklist()
-      setChecklist(result)
+      if (documentVersionRef.current === requestVersion) {
+        setChecklist(result)
+      }
     } catch (error) {
-      setChecklist({
-        answer: error instanceof Error ? error.message : "Checklist generation failed.",
-        sources: [],
-      })
+      if (documentVersionRef.current === requestVersion) {
+        setChecklist({
+          answer: error instanceof Error ? error.message : "Checklist generation failed.",
+          sources: [],
+        })
+      }
     } finally {
       setChecklistLoading(false)
     }
   }
 
   async function handleGapAnalysis() {
+    if (!document) return
+
+    const requestVersion = documentVersionRef.current
     setGapLoading(true)
 
     try {
       const result = await generateGapAnalysis()
-      setGapAnalysis(result)
+      if (documentVersionRef.current === requestVersion) {
+        setGapAnalysis(result)
+      }
     } catch (error) {
-      setGapAnalysis({
-        answer: error instanceof Error ? error.message : "Gap analysis generation failed.",
-        sources: [],
-      })
+      if (documentVersionRef.current === requestVersion) {
+        setGapAnalysis({
+          answer: error instanceof Error ? error.message : "Gap analysis generation failed.",
+          sources: [],
+        })
+      }
     } finally {
       setGapLoading(false)
     }
@@ -179,6 +209,7 @@ export default function Page() {
                     document={document}
                     uploading={uploading}
                     error={uploadError}
+                    locked={documentLocked}
                     onUpload={handleUpload}
                     onClear={clearDocument}
                   />
@@ -200,6 +231,7 @@ export default function Page() {
                   chatCount={messages.filter((message) => message.role === "user").length}
                   onUpload={handleUpload}
                   onClear={clearDocument}
+                  documentLocked={documentLocked}
                   onGenerateChecklist={handleChecklist}
                   onGenerateGapAnalysis={handleGapAnalysis}
                   onNavigate={setView}
@@ -231,6 +263,7 @@ export default function Page() {
                       document={document}
                       uploading={uploading}
                       error={uploadError}
+                      locked={documentLocked}
                       onUpload={handleUpload}
                       onClear={clearDocument}
                     />
