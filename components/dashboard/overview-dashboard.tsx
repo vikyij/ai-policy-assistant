@@ -495,6 +495,14 @@ export function OverviewDashboard({
     ...gapSummary.priorityFindings,
     ...checklistSummary.priorityFindings,
   ].slice(0, 3)
+  const checklistStatus: OverviewStatus = !checklist
+    ? "pending"
+    : checklistSummary.missing > checklistSummary.covered &&
+        checklistSummary.missing >= checklistSummary.partial
+      ? "missing"
+      : checklistSummary.partial > 0 || checklistSummary.missing > 0
+        ? "partial"
+        : "strong"
   const riskStatus =
     gapSummary.risk === "High"
       ? "missing"
@@ -550,7 +558,7 @@ export function OverviewDashboard({
               <div className="rounded-xl border border-border bg-muted/20 p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-foreground">Checklist</p>
-                  <StatusPill status={checklist ? "partial" : "pending"} />
+                  <StatusPill status={checklistStatus} />
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <div>
