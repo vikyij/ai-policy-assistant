@@ -19,6 +19,8 @@ function normalizeAssistantText(content: string) {
     .replace(/\s+(\d+\.\s+\*\*)/g, "\n\n$1")
     .replace(/\s+(\d+\.\s+[A-Z])/g, "\n\n$1")
     .replace(/\s+(-\s+\*\*)/g, "\n$1")
+    .replace(/\s+([*-]\s+)(?=[A-Z])/g, "\n\n$1")
+    .replace(/\n{3,}/g, "\n\n")
     .trim()
 }
 
@@ -47,9 +49,21 @@ function AssistantContent({ content }: { content: string }) {
   const blocks = normalized.split(/\n{2,}/).filter(Boolean)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
       {blocks.map((block, index) => {
+        const bulletMatch = block.match(/^[*-]\s+([\s\S]+)$/)
         const numberedMatch = block.match(/^(\d+)\.\s+([\s\S]+)$/)
+
+        if (bulletMatch) {
+          return (
+            <div key={`${block}-${index}`} className="flex gap-3 rounded-xl bg-muted/35 px-3 py-2.5">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary/70" />
+              <p className="min-w-0 flex-1 text-[13px] leading-6 text-foreground sm:text-sm">
+                <InlineMarkdown text={bulletMatch[1].trim()} />
+              </p>
+            </div>
+          )
+        }
 
         if (numberedMatch) {
           return (
@@ -57,7 +71,7 @@ function AssistantContent({ content }: { content: string }) {
               <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                 {numberedMatch[1]}
               </span>
-              <p className="min-w-0 flex-1">
+              <p className="min-w-0 flex-1 text-[13px] leading-6 sm:text-sm">
                 <InlineMarkdown text={numberedMatch[2].trim()} />
               </p>
             </div>
@@ -65,7 +79,7 @@ function AssistantContent({ content }: { content: string }) {
         }
 
         return (
-          <p key={`${block}-${index}`}>
+          <p key={`${block}-${index}`} className="text-[13px] leading-6 sm:text-sm">
             <InlineMarkdown text={block} />
           </p>
         )
@@ -125,7 +139,7 @@ export function ChatInterface({
                 <ShieldCheck className="size-3.5 sm:size-4" />
               </div>
               <div className="min-w-0 flex-1 space-y-3">
-                <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-3.5 py-2.5 text-sm leading-relaxed text-foreground sm:px-4 sm:py-3">
+                <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-3.5 py-3 text-foreground sm:px-4 sm:py-3.5">
                   <AssistantContent content={msg.content} />
                 </div>
                 {msg.citations && msg.citations.length > 0 && (
